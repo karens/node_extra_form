@@ -1,0 +1,100 @@
+<?php
+
+/**
+ * @file
+ * Contains node_extra_form.module.
+ *
+ * @see https://www.webomelette.com/render-custom-entity-form-modes-programatically-drupal-8
+ * @see https://www.sitepoint.com/how-to-build-multi-step-forms-in-drupal-8/
+ * @see https://www.drupal.org/docs/8/api/entity-api/display-modes-view-modes-and-form-modes
+ * @see https://www.drupal.org/docs/8/api/routing-system/structure-of-routes
+ */
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Entity\ContentEntityFormInterface;
+
+/**
+ * Implements hook_entity_type_build().
+ */
+function node_extra_form_entity_type_build(array &$entity_types) {
+  $entity_types['node']->setFormClass('extra_form', 'Drupal\node\NodeForm');
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ */
+function node_extra_form_form_node_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+
+  $form_object = $form_state->getFormObject();
+  $entity = $form_object->getEntity();
+  $entity_type = $entity->getEntityTypeId();
+  $bundle = $entity->bundle();
+
+  // Create temporary storage for our module.
+  // This won't work for anonymous users.
+  // @see https://www.drupal.org/node/2743931
+  $tempstore = \Drupal::service('user.private_tempstore')
+    ->get('node_extra_form');
+
+  switch ($form_id) {
+
+    // The primary edit form.
+    case $entity_type . '_' . $bundle . '_form':
+    case $entity_type . '_' . $bundle . '_edit_form':
+
+      // See if this is a bundle that uses the extra form.
+      $extra_form = \Drupal::entityTypeManager()
+        ->getStorage('entity_form_display')
+        ->load($entity_type . '.' . $bundle . '.extra_form');
+      if ($extra_form) {
+        $form['actions']['submit']['#submit'][] = 'node_extra_form_edit_submit';
+      }
+      break;
+
+    // The extra edit form.
+    case $entity_type . '_' . $bundle . '_extra_form_form':
+      $form['actions']['submit']['#submit'][] = 'node_extra_form_extra_submit';
+      break;
+
+  }
+}
+
+/**
+ * Custom submit handler for the edit form.
+ */
+function node_extra_form_edit_submit($form, FormStateInterface $form_state) {
+  if ($node = $form_state->getFormObject()->getEntity()) {
+    // getRedirect() produces a Url object, store it temporarily.
+    $tempstore = \Drupal::service('user.private_tempstore')
+      ->get('node_extra_form');
+    $tempstore->set('redirect', $form_state->getRedirect());
+    // Then redirect to the extra form.
+    $redirect_route = 'entity.node.extra_form';
+    $redirect_options = ['node' => $node->id()];
+    $form_state->setRedirect($redirect_route, $redirect_options);
+  }
+}
+
+/**
+ * Custom submit handler for the extra form.
+ */
+function node_extra_form_extra_submit($form, FormStateInterface $form_state) {
+  if ($node = $form_state->getFormObject()->getEntity()) {
+    // Restore the original redirect location.
+    $tempstore = \Drupal::service('user.private_tempstore')
+      ->get('node_extra_form');
+    if ($redirect = $tempstore->get('redirect')) {
+      // The stored value is a Url object, but setRedirect() expects either a
+      // route name and an array of options or a string url.
+      if ($redirect->isRouted()) {
+        $redirect_route = $redirect->getRouteName();
+        $redirect_options = $redirect->getRouteParameters();
+        $form_state->setRedirect($redirect_route, $redirect_options);
+      }
+      else {
+        $form_state->setRedirect($redirect->toString());
+      }
+      $tempstore->delete('redirect');
+    }
+  }
+}

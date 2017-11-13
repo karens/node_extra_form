@@ -1,0 +1,5 @@
+name: Node Extra Form
+type: module
+description: Creates a second form mode called "Extra Form" and redirects users to it after default node form.
+core: 8.x
+package: Custom

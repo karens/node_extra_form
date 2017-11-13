@@ -1,0 +1,10 @@
+entity.node.extra_form:
+  path: '/node/{node}/extra'
+  defaults:
+    _entity_form: node.extra_form
+    _title: 'Edit Node Extra Form'
+  requirements:
+    _permission: 'edit node entities'
+    _entity_access: 'node.edit'
+  options:
+    _admin_route: TRUE

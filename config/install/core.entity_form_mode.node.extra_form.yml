@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: node.extra_form
+label: Extra Form
+targetEntityType: node
+cache: true
